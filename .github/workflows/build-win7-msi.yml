@@ -1,0 +1,91 @@
+name: Build Windows 7 MSI (XTLS/go-win7)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'MSI Version (e.g. 2026.11.0). Leave empty to auto-generate.'
+        required: false
+        default: ''
+  push:
+    branches:
+      - actions
+    paths-ignore:
+      - '.github/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-win7-msi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install XTLS/go-win7
+        run: |
+          URL=$(curl -s https://api.github.com/repos/XTLS/go-win7/releases/latest \
+            | grep -oE 'https://[^"]+linux-amd64\.tar\.gz' \
+            | head -n 1)
+          if [ -z "$URL" ]; then
+            echo "Failed to find XTLS/go-win7 linux-amd64 release asset"
+            exit 1
+          fi
+          echo "Downloading $URL"
+          curl -L "$URL" -o /tmp/go-win7.tar.gz
+          sudo rm -rf /usr/local/go-win7
+          sudo mkdir -p /usr/local/go-win7
+          sudo tar -C /usr/local/go-win7 --strip-components=1 -xzf /tmp/go-win7.tar.gz
+          echo "/usr/local/go-win7/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Go & align go.mod if needed
+        run: |
+          go version
+          GO_VER=$(go version | grep -oE 'go[0-9]+\.[0-9]+\.[0-9]+' | sed 's/^go//')
+          echo "Using go-win7 version: $GO_VER"
+          sed -i -E "s/^go [0-9]+\.[0-9]+(\.[0-9]+)?/go $GO_VER/" go.mod
+
+      - name: Build cloudflared.exe for Windows 7
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+          GOTOOLCHAIN: local
+        run: |
+          go build -mod=readonly -ldflags="-s -w" -o cloudflared.exe ./cmd/cloudflared
+
+      - name: Install msitools (wixl)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y msitools
+
+      - name: Package MSI
+        id: package
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="$(date -u +'%Y.%-m').${{ github.run_number }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          wixl --define Version="$VERSION" --define Path=cloudflared.exe --output cloudflared-windows-amd64.msi cloudflared.wxs
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflared-win7-${{ steps.package.outputs.version }}
+          path: |
+            cloudflared.exe
+            cloudflared-windows-amd64.msi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: win7-v${{ steps.package.outputs.version }}
+          name: cloudflared Win7 v${{ steps.package.outputs.version }}
+          files: |
+            cloudflared.exe
+            cloudflared-windows-amd64.msi
