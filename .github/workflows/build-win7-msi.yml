@@ -26,19 +26,19 @@ jobs:
           fetch-depth: 0
 
       - name: Install XTLS/go-win7
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          URL=$(curl -s https://api.github.com/repos/XTLS/go-win7/releases/latest \
-            | grep -oE 'https://[^"]+linux-amd64\.tar\.gz' \
-            | head -n 1)
-          if [ -z "$URL" ]; then
-            echo "Failed to find XTLS/go-win7 linux-amd64 release asset"
-            exit 1
-          fi
-          echo "Downloading $URL"
-          curl -L "$URL" -o /tmp/go-win7.tar.gz
+          gh release download -R XTLS/go-win7 -p "go-for-win7-linux-amd64.zip" -O /tmp/go-win7.zip
+          rm -rf /tmp/go-win7-extract
+          unzip -q /tmp/go-win7.zip -d /tmp/go-win7-extract
           sudo rm -rf /usr/local/go-win7
-          sudo mkdir -p /usr/local/go-win7
-          sudo tar -C /usr/local/go-win7 --strip-components=1 -xzf /tmp/go-win7.tar.gz
+          if [ -d /tmp/go-win7-extract/go ]; then
+            sudo mv /tmp/go-win7-extract/go /usr/local/go-win7
+          else
+            sudo mv /tmp/go-win7-extract /usr/local/go-win7
+          fi
+          chmod +x /usr/local/go-win7/bin/*
           echo "/usr/local/go-win7/bin" >> "$GITHUB_PATH"
 
       - name: Verify Go & align go.mod if needed
