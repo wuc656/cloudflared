@@ -71,7 +71,6 @@ jobs:
         env:
           GOOS: windows
           GOARCH: amd64
-          CGO_ENABLED: '0'
           GOTOOLCHAIN: local
         run: |
           go build -mod=readonly -ldflags="-s -w -X 'main.Version=${{ steps.version.outputs.version }}' -X 'main.BuildTime=${{ steps.version.outputs.build_time }}'" -o cloudflared.exe ./cmd/cloudflared
