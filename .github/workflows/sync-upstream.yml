@@ -28,6 +28,7 @@ jobs:
 
           git remote add upstream https://github.com/cloudflare/cloudflared.git
           git fetch upstream master --tags
+          git push origin --tags
 
           BEFORE=$(git rev-parse HEAD)
           git merge upstream/master --no-edit
