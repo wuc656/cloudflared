@@ -50,9 +50,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.sync.outputs.latest_tag }}"
-          if ! gh release view "win7-$TAG" >/dev/null 2>&1; then
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
             echo "New upstream tag $TAG detected, triggering MSI release..."
             gh workflow run build-win7-msi.yml --ref actions -f version="$TAG" -f create_release=true
           else
-            echo "Release win7-$TAG already exists, skipping."
+            echo "Release $TAG already exists, skipping."
           fi
