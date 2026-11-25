@@ -28,16 +28,18 @@ jobs:
 
           git remote add upstream https://github.com/cloudflare/cloudflared.git
           git fetch upstream master --tags
-
-          BEFORE=$(git rev-parse origin/master)
           git push origin upstream/master:refs/heads/master
           git push origin --tags || true
-          AFTER=$(git rev-parse upstream/master)
+
+          BEFORE=$(git rev-parse HEAD)
+          git merge upstream/master --allow-unrelated-histories --no-edit
+          AFTER=$(git rev-parse HEAD)
 
           LATEST_TAG=$(git tag -l --sort=-v:refname | grep -E '^[0-9]{4}\.[0-9]+\.[0-9]+$' | head -n 1 || echo "")
           echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
 
           if [ "$BEFORE" != "$AFTER" ]; then
+            git push origin HEAD:actions
             echo "updated=true" >> "$GITHUB_OUTPUT"
           else
             echo "updated=false" >> "$GITHUB_OUTPUT"
